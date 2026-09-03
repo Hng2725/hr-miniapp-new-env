@@ -7,12 +7,14 @@ import pkg from '../package.json';
 // Derived, never typed: the archive name carries the app version, so hard-coding it turns
 // every release into a red build. It did — CI failed on every push from 2.0.0 onward, and a
 // permanently red pipeline is one nobody reads.
-const archive = `dist-source/ai.privos.mcp-app-demo-${pkg.version}.zip`;
+const archive = `dist-source/${pkg.name}-${pkg.version}.zip`;
+const canPackage = spawnSync('bash', ['--version'], { encoding: 'utf8' }).status === 0
+  && spawnSync('unzip', ['-v'], { encoding: 'utf8' }).status === 0;
 
 const planted = '.env.bak.preflight-test';
 afterEach(() => { if (fs.existsSync(planted)) fs.unlinkSync(planted); });
 
-describe('safe packaging', () => {
+describe.skipIf(!canPackage)('safe packaging', () => {
   it('keeps every .env path out of the Marketplace ZIP', () => {
     const result = spawnSync('bash', ['scripts/package-source.sh', '--allow-dirty'], { encoding: 'utf8' });
     expect(result.status).toBe(0);

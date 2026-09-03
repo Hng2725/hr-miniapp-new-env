@@ -1,160 +1,233 @@
-import { useState } from 'react';
-import { PrivosAppProvider, usePrivosContext } from '@privos_ai/app-react';
+import { useState, useEffect } from 'react';
+import { PrivosAppProvider, usePrivosContext, usePrivosApp } from '@privos_ai/app-react';
 import { ThemeProvider, ThemeToggle } from './theme-provider';
-import HRManagementDashboard from './contact-collector-form';
-import FileUploadPanel from './file-upload-panel';
-import AiChatPanel from './ai-chat-panel';
-import AiPoemPanel from './ai-poem-panel';
-import AiHistoryPanel from './ai-history-panel';
-import SkillsPanel from './skills-panel';
-import AgentSetUploadPanel from './agent-set-upload-panel';
-import SandboxConnectPanel from './sandbox-connect-panel';
-import WhoamiPanel from './whoami-panel';
-import InfoPanel from './info-panel';
-import LicensePanel from './license-panel';
-import AppOwnedChatPanel from './app-owned-chat-panel';
-import AgentBotPanel from './agent-bot-panel';
-import EmbedsPanel from './embeds-panel';
-import BotWorkloadPanel from './bot-workload-panel';
-import AssigneeDemoPanel from './assignee-demo-panel';
-import CustomPermissionsPanel from './custom-permissions-panel';
-import AttemptLifecyclePanel from './attempt-lifecycle-panel';
-import AttemptEvidencePanel from './attempt-evidence-panel';
-import AppObjectsPanel from './app-objects-panel';
-import AppDbPanel from './app-db-panel';
-import StoragePanel from './storage-panel';
-import NotificationPanel from './notification-panel';
-import ThemeInheritancePanel from './theme-inheritance-panel';
+import CompanyHome from './company-home';
+import RecruitmentPanel from './recruitment-panel';
+import PipelineDashboard from './pipeline-dashboard';
+import LifecycleDashboard from './lifecycle/LifecycleDashboard';
+import PayrollTab from './payroll/PayrollTab';
+import BotDraftingTab from './bot-drafting-tab';
+import CVScoredTab from './cv-scored/CVScoredTab';
+import JDChatbotTab from './jd-chatbot-functional';
+import EmailTab from './email-history/EmailTab';
+import { createInterviewEmailTemplateRepository } from './email-templates/interview-email-template-default';
+import { ensureTemplatesExistGlobal } from './pipeline-service';
+import { usePayrollAccessPolling } from './payroll/access/usePayrollAccessPolling';
+import {
+  canSelectPayrollTab,
+  filterPayrollTab,
+  removePayrollFromVisited,
+  resolveTabAfterPayrollRevocation,
+} from './payroll/access/payroll-navigation-policy';
 
-type Tab =
-  | 'identity'
-  | 'info'
-  | 'records'
-  | 'license'
-  | 'files'
-  | 'chat'
-  | 'poem'
-  | 'history'
-  | 'skills'
-  | 'sandbox'
-  | 'agentSets'
-  | 'agent'
-  | 'embeds'
-  | 'workload'
-  | 'assignees'
-  | 'customPermissions'
-  | 'attemptLifecycle'
-  | 'attemptEvidence'
-  | 'appObjects'
-  | 'appDb'
-  | 'storage'
-  | 'notification'
-  | 'themeInheritance';
+type Tab = 'home' | 'email' | 'recruitment' | 'pipeline' | 'cvScored' | 'chatbotJD' | 'lifecycle' | 'payroll' | 'botDrafting';
+type SectionId = 'hr' | 'admin';
 
-const TABS: { id: Tab; label: string; scope?: string; degradedBehavior?: string }[] = [
-  { id: 'identity', label: 'Identity' },
-  { id: 'info', label: 'Info', scope: 'basic:information', degradedBehavior: 'Installation context is unavailable.' },
-  { id: 'records', label: 'Records', scope: 'lists:read', degradedBehavior: 'HR records cannot be displayed.' },
-  { id: 'license', label: 'License' },
-  { id: 'files', label: 'Files', scope: 'files:read', degradedBehavior: 'Document previews and the room file list are hidden.' },
-  { id: 'chat', label: 'AI Chat', scope: 'sandbox:ai-chat:write', degradedBehavior: 'AI chat creation is disabled.' },
-  { id: 'poem', label: 'AI Poem', scope: 'sandbox:ai-chat:write', degradedBehavior: 'AI poem generation is disabled.' },
-  { id: 'history', label: 'AI History', scope: 'sandbox:ai-chat', degradedBehavior: 'Existing AI chat sessions are not displayed.' },
-  { id: 'skills', label: 'Skills', scope: 'sandbox:skills:use', degradedBehavior: 'Sandbox skill controls are hidden.' },
-  { id: 'sandbox', label: 'Sandbox', scope: 'sandbox:botkey:push', degradedBehavior: 'Sandbox connection controls are unavailable.' },
-  { id: 'agentSets', label: 'Agent sets', scope: 'sandbox:agent-sets:upload', degradedBehavior: 'Uploading agent sets into the workspace factory is disabled.' },
-  { id: 'agent', label: 'Agent bot' },
-  // No scope: embedding is governed by the admin's per-app origin allowlist, not a grant.
-  { id: 'embeds', label: 'Embeds' },
-  // No single scope: the panel itself shows granted/not-granted per lifecycle scope.
-  { id: 'workload', label: 'Bot workload' },
-  { id: 'assignees', label: 'Isolated ASSIGNEE', scope: 'lists:write', degradedBehavior: 'This demo needs write access to create the isolated list and item.' },
-  { id: 'customPermissions', label: 'Custom permissions', scope: 'custom-permissions:read', degradedBehavior: "The Custom permissions tab cannot display the room's permission catalog or membership." },
-  // Step-1 generic platform contract (merged hub bff01ee8, live only on tenant.132+). Both run as
-  // the current user under the already-approved sandbox:generate scope — no new permission.
-  { id: 'attemptLifecycle', label: 'Attempt lifecycle', scope: 'sandbox:generate', degradedBehavior: 'This tab cannot dispatch, observe, or cancel a Sandbox attempt.' },
-  { id: 'attemptEvidence', label: 'Attempt evidence', scope: 'sandbox:generate', degradedBehavior: "This tab cannot read a Sandbox attempt's LLM/gateway evidence." },
-  // Both run through this app's own installation-bot credential, not the current user's session —
-  // see app-objects-panel.tsx / app-db-panel.tsx.
-  { id: 'appObjects', label: 'App Objects (CAS)', scope: 'db:write', degradedBehavior: 'This tab cannot store or read App Objects (CAS) content.' },
-  { id: 'appDb', label: 'App Database', scope: 'db:schema:write', degradedBehavior: 'This tab cannot register or use its demo App Database collection.' },
-  // No scope: host storage is a browser-local, per-app namespace mediated by the host.
-  { id: 'storage', label: 'Storage' },
-  { id: 'notification', label: 'Notification', scope: 'notifications:write', degradedBehavior: 'This app cannot send notifications to room members.' },
-  // No scope: theme tokens ride the same non-secret HOST_CONTEXT_CHANGED push as `theme`/roomId.
-  { id: 'themeInheritance', label: 'Theme inheritance' },
+type TabSection = {
+  id: SectionId;
+  label: string;
+  tabs: { id: Tab; label: string }[];
+};
+
+const TAB_SECTIONS: TabSection[] = [
+  {
+    id: 'hr',
+    label: 'HR',
+    tabs: [
+      { id: 'recruitment', label: 'Tuy\u1ec3n d\u1ee5ng' },
+      { id: 'pipeline', label: 'CV Pipeline' },
+      { id: 'cvScored', label: 'CV \u0111\u00e3 ch\u1ea5m' },
+      { id: 'chatbotJD', label: 'Chỉnh sửa JD' },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'H\u00e0nh ch\u00ednh',
+    tabs: [
+      { id: 'lifecycle', label: 'H\u1ed3 s\u01a1 NS' },
+      { id: 'payroll', label: 'Qu\u1ea3n l\u00fd L\u01b0\u01a1ng' },
+      { id: 'botDrafting', label: 'Bot so\u1ea1n th\u1ea3o' },
+    ],
+  },
 ];
 
-function FeatureUnavailable({ text }: { text: string }) {
-  return (
-    <div className="container">
-      <h1>Optional feature unavailable</h1>
-      <div className="error-message">{text} An administrator can enable the optional permission in app settings.</div>
-    </div>
-  );
-}
-
 function ThemedApp() {
-  const { theme, effectiveScopes } = usePrivosContext();
-  const [tab, setTab] = useState<Tab>('identity');
-  const activeDefinition = TABS.find(({ id }) => id === tab)!;
-  const capabilityResolved = Array.isArray(effectiveScopes);
-  const activeGranted = !activeDefinition.scope || effectiveScopes?.includes(activeDefinition.scope) === true;
+  const app = usePrivosApp();
+  const { theme, roomId, userRoles } = usePrivosContext();
+  const [tab, setTab] = useState<Tab>('home');
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['home']));
+  const [openSection, setOpenSection] = useState<SectionId | null>(null);
+  const canAccessPayroll = usePayrollAccessPolling(app, userRoles);
+  const payrollAccessRoles = canAccessPayroll ? ['owner'] : [];
+  const visibleTabSections = TAB_SECTIONS.map((section) => ({
+    ...section,
+    tabs: filterPayrollTab(section.tabs, payrollAccessRoles),
+  }));
+
+  useEffect(() => {
+    if (app && roomId) {
+      ensureTemplatesExistGlobal(app, roomId, true).catch(console.error);
+    }
+  }, [app, roomId]);
+
+  useEffect(() => {
+    if (!app || !roomId) return;
+    const repository = createInterviewEmailTemplateRepository(app, roomId);
+    repository.ensureInitialized().catch(error => {
+      console.error('[InterviewEmailTemplates] Initialization failed', error);
+    });
+  }, [app, roomId]);
+
+  useEffect(() => {
+    if (tab === 'lifecycle') {
+      console.log('[App] Lifecycle tab is active');
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (canAccessPayroll) return;
+
+    setTab((previousTab) => resolveTabAfterPayrollRevocation(previousTab));
+    setVisitedTabs((previousVisitedTabs) => {
+      if (!previousVisitedTabs.has('payroll')) return previousVisitedTabs;
+      return removePayrollFromVisited(previousVisitedTabs);
+    });
+  }, [canAccessPayroll]);
+
+  const handleSelectTab = (selectedTab: Tab) => {
+    if (!canSelectPayrollTab(selectedTab, payrollAccessRoles)) return;
+
+    setTab(selectedTab);
+    setVisitedTabs((prev) => {
+      if (prev.has(selectedTab)) return prev;
+      const next = new Set(prev);
+      next.add(selectedTab);
+      return next;
+    });
+  };
+
+  const isSectionActive = (section: TabSection) => section.tabs.some((t) => t.id === tab);
 
   return (
     <ThemeProvider hostTheme={theme}>
       <div className="app-header">
-        <nav className="app-tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`tab-btn${tab === t.id ? ' tab-active' : ''}`}
-              onClick={() => setTab(t.id)}
-              aria-label={t.scope && capabilityResolved && !effectiveScopes.includes(t.scope) ? `${t.label} — optional permission not granted` : t.label}
-              title={t.scope && capabilityResolved && !effectiveScopes.includes(t.scope) ? 'Optional permission not granted' : undefined}
-            >
-              {t.label}{t.scope && capabilityResolved && !effectiveScopes.includes(t.scope) ? ' · Off' : ''}
-            </button>
-          ))}
+        <nav className="app-tabs" aria-label="Dashboard navigation" onMouseLeave={() => setOpenSection(null)}>
+          <button
+            type="button"
+            className={`nav-primary-btn${tab === 'home' ? ' nav-primary-active' : ''}`}
+            onClick={() => {
+              handleSelectTab('home');
+              setOpenSection(null);
+            }}
+          >
+            Company
+          </button>
+
+          <button
+            type="button"
+            className={`nav-primary-btn${tab === 'email' ? ' nav-primary-active' : ''}`}
+            onClick={() => {
+              handleSelectTab('email');
+              setOpenSection(null);
+            }}
+          >
+            Email
+          </button>
+
+          {visibleTabSections.map((section) => {
+            if (section.tabs.length === 0) return null;
+
+            const isOpen = openSection === section.id;
+            const isActive = isSectionActive(section);
+
+            return (
+              <div
+                className={`app-nav-section${isOpen ? ' app-nav-section-open' : ''}`}
+                key={section.id}
+              >
+                <button
+                  type="button"
+                  className={`nav-primary-btn${isOpen ? ' nav-primary-open' : ''}${isActive ? ' nav-primary-active' : ''}`}
+                  aria-expanded={isOpen}
+                  onClick={() => setOpenSection(isOpen ? null : section.id)}
+                >
+                  <span>{section.label}</span>
+                  <span className="nav-primary-chevron" aria-hidden="true">{'\u203a'}</span>
+                </button>
+
+                <div className={`app-subnav${isOpen ? ' app-subnav-open' : ''}`} aria-hidden={!isOpen}>
+                  {section.tabs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`tab-btn${tab === t.id ? ' tab-active' : ''}`}
+                      tabIndex={isOpen ? 0 : -1}
+                      onClick={() => {
+                        handleSelectTab(t.id);
+                        setOpenSection(null);
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <ThemeToggle />
       </div>
-
-      {!capabilityResolved && activeDefinition.scope && <div className="container"><p className="loading-text">Checking granted access…</p></div>}
-      {capabilityResolved && !activeGranted && activeDefinition.scope && (
-        <FeatureUnavailable text={activeDefinition.degradedBehavior || 'This feature is disabled.'} />
+      <div className={tab === 'home' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'home'}>
+        <CompanyHome />
+      </div>
+      {visitedTabs.has('email') && (
+        <div className={tab === 'email' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'email'}>
+          <EmailTab active={tab === 'email'} />
+        </div>
       )}
-      {(!activeDefinition.scope || (capabilityResolved && activeGranted)) && (
-        <>
-          {tab === 'identity' && <WhoamiPanel />}
-          {tab === 'agentSets' && <AgentSetUploadPanel />}
-          {tab === 'info' && <InfoPanel />}
-          {tab === 'records' && <HRManagementDashboard />}
-          {tab === 'license' && <LicensePanel />}
-          {tab === 'files' && <FileUploadPanel />}
-          {tab === 'chat' && <AiChatPanel />}
-          {tab === 'poem' && <AiPoemPanel />}
-          {tab === 'history' && <AiHistoryPanel />}
-          {tab === 'skills' && <SkillsPanel />}
-          {tab === 'sandbox' && <SandboxConnectPanel />}
-          {tab === 'agent' && <AgentBotPanel />}
-          {tab === 'embeds' && <EmbedsPanel />}
-          {tab === 'workload' && <BotWorkloadPanel />}
-          {tab === 'assignees' && <AssigneeDemoPanel />}
-          {tab === 'customPermissions' && <CustomPermissionsPanel />}
-          {tab === 'attemptLifecycle' && <AttemptLifecyclePanel />}
-          {tab === 'attemptEvidence' && <AttemptEvidencePanel />}
-          {tab === 'appObjects' && <AppObjectsPanel />}
-          {tab === 'appDb' && <AppDbPanel />}
-          {tab === 'storage' && <StoragePanel />}
-          {tab === 'notification' && <NotificationPanel />}
-          {tab === 'themeInheritance' && <ThemeInheritancePanel />}
-        </>
+      {visitedTabs.has('recruitment') && (
+        <div className={tab === 'recruitment' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'recruitment'}>
+          <RecruitmentPanel />
+        </div>
       )}
 
-      {/* Overlays every tab: the hub launcher opens this app's own chat window. */}
-      <AppOwnedChatPanel />
+      {visitedTabs.has('pipeline') && (
+        <div className={tab === 'pipeline' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'pipeline'}>
+          <PipelineDashboard />
+        </div>
+      )}
+
+      {visitedTabs.has('cvScored') && (
+        <div className={tab === 'cvScored' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'cvScored'}>
+          <CVScoredTab />
+        </div>
+      )}
+
+      {visitedTabs.has('chatbotJD') && (
+        <div className={tab === 'chatbotJD' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'chatbotJD'}>
+          <JDChatbotTab />
+        </div>
+      )}
+
+
+
+      {visitedTabs.has('lifecycle') && (
+        <div className={tab === 'lifecycle' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'lifecycle'}>
+          <LifecycleDashboard />
+        </div>
+      )}
+
+      {canAccessPayroll && visitedTabs.has('payroll') && (
+        <div className={tab === 'payroll' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'payroll'}>
+          <PayrollTab key={roomId} roomId={roomId} userRoles={payrollAccessRoles} />
+        </div>
+      )}
+
+      {visitedTabs.has('botDrafting') && (
+        <div className={tab === 'botDrafting' ? 'app-tab-panel active' : 'app-tab-panel'} aria-hidden={tab !== 'botDrafting'}>
+          <BotDraftingTab />
+        </div>
+      )}
     </ThemeProvider>
   );
 }

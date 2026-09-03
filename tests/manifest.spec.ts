@@ -15,6 +15,20 @@ describe('manifest', () => {
     expect(manifest.repository).toBe(pkg.repository.url);
   });
 
+  it('publishes exactly the retained HR tools', () => {
+    expect(publisherManifest.tools.map((tool) => tool.name)).toEqual([
+      'debug_log',
+      'hr_management_dashboard',
+      'hrm.files.read',
+      'hrm.payroll.query',
+      'hrm.mail.send',
+      'hrm.mail.retry',
+      'hrm.payroll.create',
+      'hrm.payroll.update',
+      'hrm.payroll.delete',
+    ]);
+  });
+
   it('passes strict manifest lint and emits deterministic canonical hashes', () => {
     const report = lintManifest(createManifest());
     expect(report.valid, report.errors.join('; ')).toBe(true);

@@ -46,9 +46,13 @@ import { handleMcpMessage } from './mcp-message-handlers';
  * `context.actor` is forwarded as-is; `handleMcpMessage` fails closed on
  * `undefined` and never reads any other, unverified field.
  */
-export async function relayMcpHandler(request: ApplicationMcpRequest, context: ToolCallContext): Promise<unknown> {
+export async function relayMcpHandler(
+	request: ApplicationMcpRequest,
+	context: ToolCallContext,
+	handler = handleMcpMessage,
+): Promise<unknown> {
 	const id = typeof request.id === 'number' ? request.id : 0;
-	return handleMcpMessage(request.method, id, request.params, context.actor);
+	return handler(request.method, id, request.params, context);
 }
 
 function relayLogger(prefix: string): (event: string, fields: Record<string, unknown>) => void {

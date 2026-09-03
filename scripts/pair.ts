@@ -26,6 +26,7 @@ import { buildPairingMetadata, pairAndAwaitApproval, type PairingResult } from '
 import WebSocket from 'ws';
 
 import { buildRelayAppDescriptor } from '../src/manifest';
+import { resolveStartCommand } from './package-manager-command';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -44,20 +45,16 @@ function prompt(question: string): Promise<string> {
  * so `pnpm pair` continues into `pnpm`, not a stray global `npm`.
  */
 function runStandaloneServer(): Promise<number> {
-	const agent = (process.env.npm_config_user_agent || '').split('/')[0];
-	// One `pair` + `start` convention: pairing just wrote the identity file, so a
-	// plain `start` resolves to standalone-production. NODE_ENV=production keeps
-	// the posture fail-closed (never a dev fallback) if that file were absent.
-	const argv =
-		agent === 'pnpm'
-			? ['pnpm', 'start']
-			: agent === 'yarn'
-				? ['yarn', 'start']
-				: ['npm', 'start'];
+	const start = resolveStartCommand({
+		platform: process.platform,
+		nodeExecutable: process.execPath,
+		npmExecPath: process.env.npm_execpath,
+		userAgent: process.env.npm_config_user_agent,
+	});
 
-	console.log(`\nStarting the app: ${argv.join(' ')}\n`);
+	console.log(`\nStarting the app: ${start.display}\n`);
 	return new Promise((resolve, reject) => {
-		const child = spawn(argv[0], argv.slice(1), { cwd: repositoryRoot, stdio: 'inherit', env: { ...process.env, NODE_ENV: 'production' } });
+		const child = spawn(start.command, start.args, { cwd: repositoryRoot, stdio: 'inherit', env: { ...process.env, NODE_ENV: 'production' } });
 		child.on('error', reject);
 		child.on('exit', (code, signal) => resolve(signal ? 1 : (code ?? 0)));
 	});

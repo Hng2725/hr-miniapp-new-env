@@ -76,3 +76,228 @@ export async function restCall<T = any>(
   }
   return body as T;
 }
+
+export async function getFileContent(app: McpApp, path: string): Promise<string> {
+  try {
+    const res = await app.rest({
+      method: 'GET',
+      path: 'api/files/content',
+      query: { path, basePath: '/app/data/projects/workspace/RoomFiles' },
+    } as any);
+    const body: any = res?.body ?? res;
+    return body?.content || '';
+  } catch (error) {
+    console.error('Failed to get file content', error);
+    return '';
+  }
+}
+
+type RoomFileContentOptions = Readonly<{
+  roomId: string;
+  relativePath: string;
+  fileId?: string;
+  downloadUrl?: string;
+}>;
+
+type RoomFileContentResponse = Readonly<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}>;
+
+type RoomFileFetcher = (url: string) => Promise<RoomFileContentResponse>;
+
+function extractFileText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object') return '';
+
+  const record = value as Record<string, any>;
+  if (typeof record.data === 'string') return record.data;
+  if (typeof record.content === 'string') return record.content;
+  if (record.body) {
+    const bodyText = extractFileText(record.body);
+    if (bodyText) return bodyText;
+  }
+
+  const envelopeText = record.content?.[0]?.text;
+  if (typeof envelopeText !== 'string') return '';
+  try {
+    return extractFileText(JSON.parse(envelopeText));
+  } catch {
+    return envelopeText;
+  }
+}
+
+function extractDownloadUrl(value: unknown): string {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nestedUrl = extractDownloadUrl(item);
+      if (nestedUrl) return nestedUrl;
+    }
+    return '';
+  }
+  if (!value || typeof value !== 'object') return '';
+
+  const record = value as Record<string, any>;
+  if (typeof record.downloadUrl === 'string') return record.downloadUrl;
+  const nestedValues = [record.data, record.body, record.content];
+  for (const nested of nestedValues) {
+    const nestedUrl = extractDownloadUrl(nested);
+    if (nestedUrl) return nestedUrl;
+  }
+
+  const envelopeText = record.content?.[0]?.text;
+  if (typeof envelopeText !== 'string') return '';
+  try {
+    return extractDownloadUrl(JSON.parse(envelopeText));
+  } catch {
+    return '';
+  }
+}
+
+function isToolError(value: unknown): boolean {
+  if (typeof value === 'string') {
+    try {
+      return isToolError(JSON.parse(value));
+    } catch {
+      return false;
+    }
+  }
+  if (Array.isArray(value)) return value.some(item => isToolError(item));
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, any>;
+  if (record.isError === true || record.success === false) return true;
+  if (isToolError(record.data) || isToolError(record.body) || isToolError(record.content)) return true;
+  return typeof record.text === 'string' && isToolError(record.text);
+}
+
+export async function loadRoomFileContent(
+  app: Pick<McpApp, 'callServerTool' | 'rest'>,
+  options: RoomFileContentOptions,
+  fetchFile: RoomFileFetcher = url => fetch(url),
+): Promise<string> {
+  const canonicalPath = `${options.roomId}/${options.relativePath.replace(/^\/+/, '')}`;
+  if (options.fileId) {
+    try {
+      const response = await app.callServerTool({
+        name: 'hrm.files.read',
+        arguments: { roomId: options.roomId, fileId: options.fileId },
+      });
+      if (!isToolError(response)) {
+        const content = extractFileText(response);
+        if (content.trim()) return content;
+      }
+    } catch (error) {
+      console.warn('[Room Files] Backend file read failed:', error);
+    }
+  }
+
+  try {
+    const response = await app.callServerTool({
+      name: 'privos.files.getContent',
+      arguments: { path: canonicalPath },
+    });
+    if (!isToolError(response)) {
+      const content = extractFileText(response);
+      if (content.trim()) return content;
+    }
+  } catch (error) {
+    console.warn('[Room Files] Canonical content tool failed:', error);
+  }
+
+  let downloadUrl = options.downloadUrl || '';
+  if (!downloadUrl && options.fileId) {
+    try {
+      const fileDetail = await app.callServerTool({
+        name: 'privos.files.get',
+        arguments: { fileId: options.fileId },
+      });
+      if (!isToolError(fileDetail)) {
+        downloadUrl = extractDownloadUrl(fileDetail);
+      }
+    } catch (error) {
+      console.warn('[Room Files] File detail lookup failed:', error);
+    }
+  }
+
+  if (downloadUrl) {
+    try {
+      const response = await fetchFile(downloadUrl);
+      if (response.ok) {
+        const content = await response.text();
+        if (content.trim()) return content;
+      }
+    } catch (error) {
+      console.warn('[Room Files] Download URL fetch failed:', error);
+    }
+  }
+
+  return getFileContent(app as McpApp, canonicalPath);
+}
+
+export async function ensureFolderPath(
+  app: McpApp,
+  channelId: string,
+  folderNames: string[],
+): Promise<string | undefined> {
+  let currentParentId: string | undefined;
+  for (const folderName of folderNames) {
+    if (!folderName) continue;
+    const arguments_: Record<string, unknown> = { channelId, limit: 100 };
+    if (currentParentId) arguments_.parentId = currentParentId;
+    const getResult: any = await app.callServerTool({
+      name: 'privos.folders.getByChannel',
+      arguments: arguments_,
+    });
+    let folders: any[] = [];
+    try {
+      const text = getResult?.content?.[0]?.text;
+      const parsed = typeof text === 'string' ? JSON.parse(text) : undefined;
+      folders = Array.isArray(parsed) ? parsed : parsed?.folders || [];
+    } catch (error) {
+      console.error('Failed to parse getByChannel response', error);
+    }
+    const existing = folders.find(folder => folder?.name === folderName);
+    if (existing?._id) {
+      currentParentId = existing._id;
+      continue;
+    }
+    const createArguments: Record<string, unknown> = { channelId, name: folderName };
+    if (currentParentId) createArguments.parentId = currentParentId;
+    const createResult: any = await app.callServerTool({
+      name: 'privos.folders.create',
+      arguments: createArguments,
+    });
+    try {
+      const text = createResult?.content?.[0]?.text;
+      const parsed = typeof text === 'string' ? JSON.parse(text) : undefined;
+      currentParentId = parsed?._id;
+    } catch (error) {
+      console.error('Failed to parse folder creation response', error);
+    }
+    if (!currentParentId) throw new Error(`Failed to create folder: ${folderName}`);
+  }
+  return currentParentId;
+}
+
+export async function createOrUpdateFile(app: McpApp, path: string, content: string): Promise<any> {
+  try {
+    const parts = path.split('/');
+    const roomId = parts[0];
+    const fileName = parts[parts.length - 1];
+    const targetFolderId = await ensureFolderPath(app, roomId, parts.slice(1, -1));
+    const base64Content = btoa(unescape(encodeURIComponent(content)));
+    return await app.uploadFile({
+      channelId: roomId,
+      fileName,
+      base64Data: `data:text/markdown;base64,${base64Content}`,
+      mimeType: 'text/markdown',
+      duplicateAction: 'replace',
+      ...(targetFolderId ? { folderId: targetFolderId } : {}),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Failed to create/update file', error);
+    throw new Error(`Failed to create/update file: ${message}`);
+  }
+}

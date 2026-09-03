@@ -1,10 +1,10 @@
 {
-  "name": "ai.privos.mcp-app-demo",
-  "version": "2.15.1",
+  "name": "ai.privos.demo-hr-miniapp-test",
+  "version": "1.0.0",
   "type": "module",
   "private": false,
-  "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
-  "title": "PrivOS Demo MCP App",
+  "description": "HR management app for recruitment, CV screening, lifecycle, payroll, training, documents, and tracked email workflows on PrivOS.",
+  "title": "HR Mini app test migrate",
   "icon": "/public/icon.svg",
   "homepage": "https://privos.ai",
   "author": {
@@ -12,27 +12,7 @@
     "email": "dev@privos.ai",
     "url": "https://privos.ai"
   },
-  "license": {
-    "enforcement": "app",
-    "tiers": [
-      {
-        "id": "free",
-        "features": [],
-        "limits": {
-          "records": 50
-        }
-      },
-      {
-        "id": "pro",
-        "features": [
-          "bulk-export"
-        ],
-        "limits": {
-          "records": 5000
-        }
-      }
-    ]
-  },
+  "license": "MIT",
   "dockerfilePath": "Dockerfile",
   "keywords": [
     "hr",
@@ -45,18 +25,19 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/PrivOS-AI/privos-mcp-app-demo"
+    "url": "https://github.com/PrivOS-AI/privos-demo-hrm-ws"
   },
   "engines": {
     "node": ">=22.0.0"
   },
   "scripts": {
     "build": "vite build && tsx scripts/generate-manifest.ts && npm run manifest:lint",
-    "dev": "PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "cross-env PRIVOS_TRANSPORT=relay PRIVOS_DEV_UI=1 tsx src/server.ts",
+    "start": "tsx scripts/start.ts",
+    "postinstall": "node scripts/patch-app-server-windows.cjs",
     "pair": "tsx scripts/pair.ts",
-    "start:relay": "PRIVOS_TRANSPORT=relay npm start",
-    "start:standalone": "NODE_ENV=production npm start",
+    "start:relay": "cross-env PRIVOS_TRANSPORT=relay npm start",
+    "start:standalone": "cross-env NODE_ENV=production npm start",
     "typecheck": "tsc --noEmit",
     "typecheck:strict-unused": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",
@@ -69,10 +50,13 @@
     "docker:run": "docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 100 --tmpfs /tmp -e PORT=3000 privos-mcp-app-demo:local"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.2",
     "@privos_ai/app-server": "^0.9.0",
+    "docx": "^9.7.1",
     "dotenv": "^17.3.1",
     "tsx": "^4.0.0",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@privos_ai/app-react": "^0.6.0",
@@ -81,6 +65,7 @@
     "@types/react-dom": "^18.0.0",
     "@types/ws": "^8.0.0",
     "@vitejs/plugin-react": "^4.0.0",
+    "cross-env": "^10.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "typescript": "^5.0.0",

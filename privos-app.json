@@ -1,10 +1,10 @@
 {
   "schemaVersion": 3,
   "kind": "mcp-app",
-  "name": "ai.privos.mcp-app-demo",
-  "version": "2.15.1",
-  "title": "PrivOS Demo MCP App",
-  "description": "Reference PrivOS MCP app demonstrating HR workflows, scoped workspace APIs, AI and sandbox controls, and license-aware features.",
+  "name": "ai.privos.demo-hr-miniapp-test",
+  "version": "1.0.0",
+  "title": "HR & HRM",
+  "description": "HR management app for recruitment, CV screening, lifecycle, payroll, training, documents, and tracked email workflows on PrivOS.",
   "icon": "/public/icon.svg",
   "author": {
     "name": "PrivOS AI",
@@ -12,7 +12,7 @@
     "website": "https://privos.ai"
   },
   "homepage": "https://privos.ai",
-  "repository": "https://github.com/PrivOS-AI/privos-mcp-app-demo",
+  "repository": "https://github.com/PrivOS-AI/privos-demo-hrm-ws",
   "permissions": [
     {
       "scope": "basic:information",
@@ -20,25 +20,7 @@
       "context": "room",
       "executionContext": "both",
       "feature": "core.context",
-      "reason": "Identify the approved installation and room so the dashboard can load safely."
-    },
-    {
-      "scope": "bot:room:join",
-      "requirement": "optional",
-      "context": "room",
-      "executionContext": "user",
-      "feature": "agent.bot.join",
-      "reason": "Add the installation-owned agent bot to the exact Room approved by the Hub.",
-      "degradedBehavior": "The app cannot add its installation-owned agent bot to this Room."
-    },
-    {
-      "scope": "bot:identity:read",
-      "requirement": "optional",
-      "context": "room",
-      "executionContext": "user",
-      "feature": "agent.bot.identity",
-      "reason": "Read safe identity for the installation bot only when it belongs to the exact approved Room.",
-      "degradedBehavior": "The app cannot display the installation bot identity for this Room."
+      "reason": "Identify the approved installation and room so HR workflows load safely."
     },
     {
       "scope": "lists:read",
@@ -46,16 +28,7 @@
       "context": "room",
       "executionContext": "user",
       "feature": "hr.records.read",
-      "reason": "Read the HR lists selected for this room."
-    },
-    {
-      "scope": "lists:query",
-      "requirement": "optional",
-      "context": "room",
-      "executionContext": "user",
-      "feature": "hr.records.query",
-      "reason": "Page and search HR records without reading the whole list.",
-      "degradedBehavior": "The records table falls back to the unpaged list route, which returns at most 500 items and says so instead of showing a silent subset."
+      "reason": "Read recruitment, employee, training, document, and related HR lists selected for this room."
     },
     {
       "scope": "lists:write",
@@ -63,18 +36,9 @@
       "context": "room",
       "executionContext": "user",
       "feature": "hr.records.manage",
-      "reason": "Create and update HR records from the dashboard.",
+      "reason": "Create, update, and delete HR records from the dashboard.",
       "recommended": true,
-      "degradedBehavior": "The dashboard remains read-only."
-    },
-    {
-      "scope": "notifications:write",
-      "requirement": "optional",
-      "context": "room",
-      "executionContext": "user",
-      "feature": "notifications.send",
-      "reason": "Send a bell, native mobile, and Web Push notification to one active member of the exact approved room from the Notification demo tab.",
-      "degradedBehavior": "The Notification tab cannot send notifications."
+      "degradedBehavior": "HR records remain read-only."
     },
     {
       "scope": "files:read",
@@ -83,7 +47,8 @@
       "executionContext": "user",
       "feature": "hr.files.read",
       "reason": "List and preview HR documents attached to the room.",
-      "degradedBehavior": "Document previews and the room file list are hidden."
+      "recommended": true,
+      "degradedBehavior": "Document previews and the room file list are unavailable."
     },
     {
       "scope": "files:write",
@@ -92,7 +57,8 @@
       "executionContext": "user",
       "feature": "hr.files.manage",
       "reason": "Upload HR documents and generated exports to the room.",
-      "degradedBehavior": "Uploads remain disabled; existing records are unchanged."
+      "recommended": true,
+      "degradedBehavior": "Uploads and generated file exports are disabled."
     },
     {
       "scope": "sandbox:skills:use",
@@ -100,17 +66,9 @@
       "context": "room",
       "executionContext": "user",
       "feature": "sandbox.skills",
-      "reason": "Show and select the skills enabled in the room sandbox.",
-      "degradedBehavior": "Sandbox skill controls are hidden."
-    },
-    {
-      "scope": "sandbox:agent-sets:upload",
-      "requirement": "optional",
-      "context": "workspace",
-      "executionContext": "user",
-      "feature": "sandbox.agent-sets.upload",
-      "reason": "Upload an agent set into the workspace factory on behalf of a workspace administrator.",
-      "degradedBehavior": "The app cannot upload agent sets; existing sets can still be selected for the room."
+      "reason": "Use the HR skills enabled in the room sandbox.",
+      "recommended": true,
+      "degradedBehavior": "Sandbox skill controls are unavailable."
     },
     {
       "scope": "sandbox:botkey:push",
@@ -119,6 +77,7 @@
       "executionContext": "user",
       "feature": "sandbox.connect",
       "reason": "Connect the room sandbox to its installation-specific bot identity.",
+      "recommended": true,
       "degradedBehavior": "The dashboard cannot connect or rotate the sandbox bot identity."
     },
     {
@@ -128,6 +87,7 @@
       "executionContext": "user",
       "feature": "sandbox.wake",
       "reason": "Wake the approved room sandbox and display its state.",
+      "recommended": true,
       "degradedBehavior": "Sandbox wake and state controls are unavailable."
     },
     {
@@ -136,8 +96,9 @@
       "context": "room",
       "executionContext": "user",
       "feature": "sandbox.workload.generate",
-      "reason": "Start and poll a Sandbox generation as the current user, optionally selecting the installation-owned agent bot as executor, to demonstrate the room's Sandbox workload lifecycle.",
-      "degradedBehavior": "The Bot workload tab cannot start or poll a Sandbox attempt."
+      "reason": "Run HR generation workflows in the approved room sandbox.",
+      "recommended": true,
+      "degradedBehavior": "HR generation workflows cannot be started."
     },
     {
       "scope": "sandbox:ai-chat",
@@ -145,8 +106,9 @@
       "context": "room",
       "executionContext": "user",
       "feature": "sandbox.chat.read",
-      "reason": "Read AI chat history created in the approved room.",
-      "degradedBehavior": "Existing AI chat sessions are not displayed."
+      "reason": "Read AI chat history created for HR workflows in the approved room.",
+      "recommended": true,
+      "degradedBehavior": "Existing HR AI chat sessions are unavailable."
     },
     {
       "scope": "sandbox:ai-chat:write",
@@ -154,82 +116,88 @@
       "context": "room",
       "executionContext": "user",
       "feature": "sandbox.chat.manage",
-      "reason": "Start, send, and stop AI chat work in the approved room.",
-      "degradedBehavior": "AI chat remains read-only when read access is granted, or hidden otherwise."
+      "reason": "Start, send, and stop HR AI chat work in the approved room.",
+      "recommended": true,
+      "degradedBehavior": "HR AI chat is read-only when read access is granted, or unavailable otherwise."
     },
     {
       "scope": "db:read",
       "requirement": "optional",
       "context": "room",
       "executionContext": "user",
-      "feature": "platform.db.read",
-      "reason": "Read this app's own room-scoped App Database records and App Objects (CAS) metadata/content in the App Objects and App Database demo tabs, exercised through this app's own installation-bot credential.",
-      "degradedBehavior": "The App Objects and App Database demo tabs cannot read anything back."
+      "feature": "hr.payroll.read",
+      "reason": "Read room-scoped payroll records from this app's App Database.",
+      "recommended": true,
+      "degradedBehavior": "Payroll records cannot be displayed."
     },
     {
       "scope": "db:write",
       "requirement": "optional",
       "context": "room",
       "executionContext": "user",
-      "feature": "platform.db.write",
-      "reason": "Store an immutable content-addressed App Object and create records in this app's own room-scoped App Database collection, in the App Objects and App Database demo tabs.",
-      "degradedBehavior": "The App Objects and App Database demo tabs cannot store or create anything."
+      "feature": "hr.payroll.manage",
+      "reason": "Create, update, and delete room-scoped payroll records.",
+      "recommended": true,
+      "degradedBehavior": "Payroll create, update, and delete actions are disabled."
     },
     {
       "scope": "db:schema:read",
       "requirement": "optional",
       "context": "room",
       "executionContext": "user",
-      "feature": "platform.db.schema.read",
-      "reason": "Read the demo App Database collection's registered schema in the App Database demo tab.",
-      "degradedBehavior": "The App Database demo tab cannot display its collection schema."
+      "feature": "hr.payroll.schema.read",
+      "reason": "Read the registered payroll collection schema.",
+      "recommended": true,
+      "degradedBehavior": "Payroll schema inspection is unavailable."
     },
     {
       "scope": "db:schema:write",
       "requirement": "optional",
       "context": "room",
       "executionContext": "user",
-      "feature": "platform.db.schema.write",
-      "reason": "Register the demo App Database collection's schema (mcpapp.db.registerCollection) once per room, in the App Database demo tab.",
-      "degradedBehavior": "The App Database demo tab cannot register its demo collection."
-    },
-    {
-      "scope": "custom-permissions:read",
-      "requirement": "optional",
-      "context": "room",
-      "executionContext": "user",
-      "feature": "custom-permissions.read",
-      "reason": "Read the approved room's custom-permission catalog and which members hold each permission, in the Custom permissions demo tab.",
-      "degradedBehavior": "The Custom permissions tab cannot display the room's permission catalog or membership."
-    },
-    {
-      "scope": "custom-permissions:write",
-      "requirement": "optional",
-      "context": "room",
-      "executionContext": "user",
-      "feature": "custom-permissions.write",
-      "reason": "Grant a custom permission's holders read or read+edit access to one isolated-list item (additionalReaders/additionalEditors) from the Custom permissions demo tab. The Hub still requires the acting user to be room owner/admin.",
-      "degradedBehavior": "The Custom permissions tab cannot grant item-level access to a custom permission's holders."
+      "feature": "hr.payroll.schema.manage",
+      "reason": "Register or update the payroll collection schema for the room.",
+      "recommended": true,
+      "degradedBehavior": "The payroll collection schema cannot be initialized."
     }
   ],
   "dataPolicy": {
-    "version": "2026-08-02",
-    "retention": "App data is retained until the installation or corresponding HR records are deleted.",
-    "externalProcessing": false
+    "version": "2026-09-01",
+    "retention": "Room HR records and tracked email history are retained until the installation or corresponding Room data is deleted.",
+    "externalProcessing": true
   },
   "availabilityTier": "single",
   "capabilities": {
     "verifiedActor": true
   },
   "agentBot": {
-    "name": "PrivOS Demo Assistant",
-    "slug": "privos-demo-assistant"
+    "name": "HR Mini App Assistant",
+    "slug": "hr-mini-app-assistant"
   },
   "tools": [
     {
+      "name": "debug_log",
+      "title": "Debug Log",
+      "description": "Log safe frontend diagnostics to the app backend.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      }
+    },
+    {
       "name": "hr_management_dashboard",
-      "title": "PrivOS Demo MCP App",
-      "description": "Open the interactive HR workflow and PrivOS platform demonstration dashboard.",
+      "title": "HR Mini app V3",
+      "description": "Open the complete HR management dashboard.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -239,49 +207,129 @@
         }
       },
       "ui": {
-        "resourceUri": "ui://privos-mcp-app-demo/form.html",
-        "csp": {
-          "frame-src": [
-            "https://www.youtube.com"
-          ]
-        }
+        "resourceUri": "ui://ai.privos.demo-hr-management-ws/dashboard.html"
       }
     },
     {
-      "name": "hr_whoami",
-      "title": "Who am I (verified)",
-      "description": "Return the user identity authenticated by the Hub's body-bound private dispatch assertion.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      }
-    },
-    {
-      "name": "hr_bulk_export",
-      "title": "Bulk export HR records",
-      "description": "Export records in bulk. Requires the Pro tier.",
+      "name": "hrm.files.read",
+      "title": "Read HR Room File",
+      "description": "Read a room-scoped HR file by its PrivOS file id.",
       "inputSchema": {
         "type": "object",
         "properties": {
-          "records": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
+          "roomId": { "type": "string" },
+          "fileId": { "type": "string" }
+        },
+        "required": [
+          "roomId",
+          "fileId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "hrm.payroll.query",
+      "title": "Query Payroll Data",
+      "description": "Query room-scoped payroll data (Requires Password).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string"
           }
         },
         "required": [
-          "records"
+          "roomId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "hrm.mail.send",
+      "title": "Send HR Email",
+      "description": "Send and track an HR email through the configured EmailJS service.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "toName": { "type": "string" },
+          "toEmail": { "type": "string" },
+          "subject": { "type": "string" },
+          "htmlContent": { "type": "string" },
+          "roomId": { "type": "string" },
+          "source": { "type": "string" },
+          "cvItemId": { "type": "string" },
+          "cvListId": { "type": "string" },
+          "jdName": { "type": "string" },
+          "requestedBy": { "type": "string" }
+        },
+        "required": [
+          "toName",
+          "toEmail",
+          "subject",
+          "htmlContent",
+          "roomId"
         ]
       }
     },
     {
-      "name": "hr_agent_bot_credential_check",
-      "title": "Validate agent bot credential",
-      "description": "Confirm this app's configured agent bot credential authenticates against the Hub.",
+      "name": "hrm.mail.retry",
+      "title": "Retry HR Email",
+      "description": "Retry a previously failed tracked HR email.",
       "inputSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "roomId": { "type": "string" },
+          "itemId": { "type": "string" }
+        },
+        "required": [
+          "roomId",
+          "itemId"
+        ]
+      }
+    },
+    {
+      "name": "hrm.payroll.create",
+      "title": "Create Payroll Record",
+      "description": "Create a room-scoped payroll record (Requires Password).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomId": { "type": "string" }
+        },
+        "required": [
+          "roomId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "hrm.payroll.update",
+      "title": "Update Payroll Record",
+      "description": "Update a room-scoped payroll record (Requires Password).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomId": { "type": "string" }
+        },
+        "required": [
+          "roomId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "hrm.payroll.delete",
+      "title": "Delete Payroll Record",
+      "description": "Delete a room-scoped payroll record (Requires Password).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "roomId": { "type": "string" }
+        },
+        "required": [
+          "roomId"
+        ],
+        "additionalProperties": true
       }
     }
   ],
@@ -299,54 +347,44 @@
         "id": "free",
         "name": "Free",
         "features": [],
-        "limits": {
-          "records": 50
-        }
-      },
-      {
-        "id": "pro",
-        "name": "Pro",
-        "features": [
-          "bulk-export"
-        ],
-        "limits": {
-          "records": 5000
-        }
+        "limits": {}
       }
     ]
   },
   "env": [
     {
-      "key": "HRM_COMPANY_NAME",
-      "description": "Company name shown in the HR dashboard header.",
-      "required": true,
-      "secret": false,
-      "example": "Acme GmbH",
-      "default": null
-    },
-    {
-      "key": "HRM_LOCALE",
-      "description": "BCP-47 locale used for date and currency formatting.",
+      "key": "EMAILJS_SERVICE_ID",
+      "description": "EmailJS service id used by tracked HR email workflows.",
       "required": false,
-      "secret": false,
-      "example": "de-DE",
-      "default": "en-US"
+      "secret": false
     },
     {
-      "key": "HRM_SMTP_PASSWORD",
-      "description": "Password for the SMTP account payslip mail is sent through.",
+      "key": "EMAILJS_TEMPLATE_ID",
+      "description": "EmailJS template id used by tracked HR email workflows.",
+      "required": false,
+      "secret": false
+    },
+    {
+      "key": "EMAILJS_PUBLIC_KEY",
+      "description": "EmailJS public key used by tracked HR email workflows.",
+      "required": false,
+      "secret": false
+    },
+    {
+      "key": "EMAILJS_PRIVATE_KEY",
+      "description": "EmailJS private key used only by the app backend.",
       "required": false,
       "secret": true
     },
     {
       "key": "PRIVOS_AGENT_BOT_CREDENTIAL",
-      "description": "This app's agent bot Hub API credential. Issued and rotated only by a workspace admin from this app's settings page, never by this app.",
+      "description": "This app's agent bot Hub API credential, issued and rotated by a workspace administrator.",
       "required": false,
       "secret": true
     },
     {
       "key": "PRIVOS_AGENT_BOT_USER_ID",
-      "description": "This app's agent bot Hub user id, paired with PRIVOS_AGENT_BOT_CREDENTIAL for REST auth. Written only by a workspace admin from this app's settings page.",
+      "description": "This app's agent bot Hub user id, paired with PRIVOS_AGENT_BOT_CREDENTIAL for REST authentication.",
       "required": false,
       "secret": false
     }
